@@ -65,3 +65,10 @@
   - `PUT /orders/{order_id}/approve`: trừ kho và cộng công nợ ngay khi duyệt đơn `pending`.
 - Cập nhật huỷ đơn `DELETE /orders/{order_id}/cancel`: dùng logic hoàn tác business để trả kho/trả công nợ cho các trạng thái đã áp dụng (`approved`, `assigned`, `completed`).
 - Cập nhật `PUT /orders/{order_id}/confirm`: không trừ kho/cộng nợ thêm lần nữa; chỉ hoàn trả phần chênh lệch khi giao thiếu (trả kho + giảm công nợ), đồng thời cập nhật `order.total_amount` theo số giao thực tế.
+
+# 2026-04-18 - Debt timing correction
+- Theo yêu cầu mới: **không cộng công nợ ngay khi duyệt/tạo đơn desktop**.
+- Logic hiện tại:
+  - `approve` / `desktop-dispatch`: chỉ trừ (reserve) kho ngay để tránh oversell.
+  - `confirm`: mới cộng công nợ theo số giao thực tế.
+  - `cancel` / huỷ trước hoàn thành: hoàn lại kho; không hoàn nợ cho `approved/assigned` vì chưa cộng nợ.

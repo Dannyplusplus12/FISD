@@ -1283,7 +1283,8 @@ def checkout_desktop_dispatch(data: CheckoutRequest, db: Session = Depends(get_d
     Desktop dispatch flow:
     - Skip manager approval step
     - Send order directly to picker queue (status='approved')
-    - Apply stock/debt immediately at dispatch time
+    - Apply stock immediately at dispatch time
+    - Debt remains unchanged until picker confirms delivery
     """
     try:
         total = sum([item.quantity * item.price for item in data.cart])
@@ -1304,8 +1305,6 @@ def checkout_desktop_dispatch(data: CheckoutRequest, db: Session = Depends(get_d
                 customer = Customer(name=c_name, phone=data.customer_phone, debt=0, area_id=_get_default_area_id(db))
                 db.add(customer)
                 db.flush()
-
-            customer.debt = int(customer.debt or 0) + int(total or 0)
 
         new_order = Order(
             total_amount=total,
@@ -1377,7 +1376,7 @@ def _delete_order_with_business_logic(order: Order, db: Session):
     Delete an order with the same business behavior as invoice deletion:
     - completed: restore stock + revert customer debt
     - pending: just remove order items + order (no stock/debt applied yet)
-    - approved/assigned: restore stock + revert customer debt (already applied at dispatch/approve)
+    - approved/assigned: restore stock only (debt not applied yet)
     """
     if order.status in ('completed', 'approved', 'assigned'):
         for item in order.items:
@@ -1386,7 +1385,7 @@ def _delete_order_with_business_logic(order: Order, db: Session):
                 if var:
                     var.stock = (var.stock or 0) + (item.quantity or 0)
 
-        if order.customer_id:
+        if order.status == 'completed' and order.customer_id:
             cust = db.query(Customer).filter(Customer.id == order.customer_id).first()
             if cust and order.total_amount:
                 try:
@@ -2111,7 +2110,8 @@ def get_order_status(order_id: int, db: Session = Depends(get_db)):
 def approve_order(order_id: int, db: Session = Depends(get_db)):
     """
     Staff accepts a PENDING order → moves to APPROVED for picker.
-    Stock and debt are applied immediately when approving.
+    Stock is applied immediately when approving.
+    Debt is still applied only when picker confirms delivery.
     """
     try:
         order = db.query(Order).filter(Order.id == order_id).first()
@@ -2136,11 +2136,6 @@ def approve_order(order_id: int, db: Session = Depends(get_db)):
             var = db.query(Variant).filter(Variant.id == item.variant_id).first()
             var.stock = int(var.stock or 0) - int(item.quantity or 0)
 
-        if order.customer_id and int(order.total_amount or 0) > 0:
-            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
-            if customer:
-                customer.debt = int(customer.debt or 0) + int(order.total_amount or 0)
-
         order.status = 'approved'
         order.is_draft = 1  # keep is_draft consistent (still not finalized)
         db.commit()
@@ -2161,8 +2156,9 @@ def approve_order(order_id: int, db: Session = Depends(get_db)):
 def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db: Session = Depends(get_db), picker_note: str = ""):
     """
     Picker confirms delivery:
-    - Order stock/debt were already applied at approve/dispatch time
-    - If picker delivers less than requested, refund the difference back to stock/debt
+    - Stock was already reserved at approve/dispatch time
+    - If picker delivers less than requested, refund stock difference
+    - Add customer debt by delivered amount only at confirm time
     - Mark status='completed'
     - Save picker_note if there are shortages
     """
@@ -2201,7 +2197,6 @@ def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db
                 picked_by_item_id[item.id] = int(item.quantity or 0)
 
         delivered_total = 0
-        requested_total = int(order.total_amount or 0)
         shortage_parts = []
         stock_mismatch_parts = []
 
@@ -2225,12 +2220,11 @@ def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db
                 item.quantity = picked_qty
                 delivered_total += int(item.price or 0) * picked_qty
 
-        # Debt was already added when approve/dispatch; refund difference if delivered less
-        refund_amount = max(0, requested_total - delivered_total)
-        if order.customer_id and refund_amount > 0:
+        # Add customer debt by delivered amount only
+        if order.customer_id and delivered_total > 0:
             customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
             if customer:
-                customer.debt = int(customer.debt or 0) - refund_amount
+                customer.debt = int(customer.debt or 0) + delivered_total
 
         order.total_amount = delivered_total
         order.picker_note = ""
