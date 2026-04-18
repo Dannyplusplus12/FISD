@@ -57,8 +57,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final useMobileLayout = DeviceDetector.isMobileLayout(context);
-
     return MaterialApp(
       title: 'Fisd',
       debugShowCheckedModeBanner: false,
@@ -75,12 +73,17 @@ class _MyAppState extends State<MyApp> {
         Locale('en', 'US'),
       ],
       locale: const Locale('vi', 'VN'),
-      home: useMobileLayout
-          ? const MobileHomeScreen()
-          : HomeScreen(
-              isDarkMode: _themeMode == ThemeMode.dark,
-              onToggleTheme: _toggleThemeMode,
-            ),
+      home: Builder(
+        builder: (context) {
+          final useMobileLayout = DeviceDetector.isMobileLayout(context);
+          return useMobileLayout
+              ? const MobileHomeScreen()
+              : HomeScreen(
+                  isDarkMode: _themeMode == ThemeMode.dark,
+                  onToggleTheme: _toggleThemeMode,
+                );
+        },
+      ),
     );
   }
 }

@@ -24,3 +24,8 @@
 # 2026-04-18 - PWA device layout detection fix
 - Sửa logic chọn UI ở `frontend/lib/main.dart` để dùng `DeviceDetector.isMobileLayout(context)`.
 - Bổ sung fallback nhận diện cho web trong `frontend/lib/utils/device_detector.dart`: nếu chạy PWA thì phân loại mobile/desktop theo độ rộng màn hình (`MediaQuery`), giúp hiển thị đúng UI trên điện thoại và desktop browser.
+
+# 2026-04-18 - iPhone web/PWA detection hardening
+- Cập nhật `frontend/lib/main.dart`: chọn màn hình bằng `Builder` bên trong `MaterialApp` để đảm bảo có `MediaQuery` hợp lệ khi quyết định mobile/desktop UI.
+- Cập nhật `frontend/lib/utils/device_detector.dart`: trên web ưu tiên nhận diện `defaultTargetPlatform` (iOS/Android => mobile), sau đó fallback theo chiều rộng logical viewport.
+- Cập nhật `frontend/web/index.html`: thêm meta `viewport` và `apple-mobile-web-app-capable` để Safari iPhone dùng đúng viewport mobile và cải thiện hành vi Add to Home Screen.

@@ -31,7 +31,15 @@ class DeviceDetector {
     if (!kIsWeb) {
       return isMobile;
     }
-    final width = MediaQuery.sizeOf(context).width;
+
+    final platform = defaultTargetPlatform;
+    if (platform == TargetPlatform.iOS || platform == TargetPlatform.android) {
+      return true;
+    }
+
+    final mediaSize = MediaQuery.maybeSizeOf(context);
+    final view = View.maybeOf(context);
+    final width = mediaSize?.width ?? ((view == null || view.devicePixelRatio == 0) ? 0 : (view.physicalSize.width / view.devicePixelRatio));
     return width <= _mobileWidthBreakpoint;
   }
 }
