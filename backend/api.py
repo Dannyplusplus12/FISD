@@ -1237,6 +1237,9 @@ def create_customer_manual(data: CustomerCreate, db: Session = Depends(get_db)):
         return {"status": "created", "id": new_cust.id}
     except HTTPException:
         raise
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -1280,10 +1283,16 @@ def checkout_desktop_dispatch(data: CheckoutRequest, db: Session = Depends(get_d
     Desktop dispatch flow:
     - Skip manager approval step
     - Send order directly to picker queue (status='approved')
-    - Stock/debt are still applied only when picker delivers/confirms
+    - Apply stock/debt immediately at dispatch time
     """
     try:
         total = sum([item.quantity * item.price for item in data.cart])
+
+        for item in data.cart:
+            variant = db.query(Variant).filter(Variant.id == item.variant_id).first()
+            if not variant or int(variant.stock or 0) < int(item.quantity or 0):
+                raise HTTPException(status_code=400, detail=f"SP {item.product_name} thiếu hàng")
+            variant.stock = int(variant.stock or 0) - int(item.quantity or 0)
 
         c_name = data.customer_name.strip()
         customer = None
@@ -1295,6 +1304,8 @@ def checkout_desktop_dispatch(data: CheckoutRequest, db: Session = Depends(get_d
                 customer = Customer(name=c_name, phone=data.customer_phone, debt=0, area_id=_get_default_area_id(db))
                 db.add(customer)
                 db.flush()
+
+            customer.debt = int(customer.debt or 0) + int(total or 0)
 
         new_order = Order(
             total_amount=total,
@@ -1365,9 +1376,10 @@ def _delete_order_with_business_logic(order: Order, db: Session):
     """
     Delete an order with the same business behavior as invoice deletion:
     - completed: restore stock + revert customer debt
-    - pending/accepted: just remove order items + order (no stock/debt applied yet)
+    - pending: just remove order items + order (no stock/debt applied yet)
+    - approved/assigned: restore stock + revert customer debt (already applied at dispatch/approve)
     """
-    if order.status == 'completed':
+    if order.status in ('completed', 'approved', 'assigned'):
         for item in order.items:
             if item.variant_id:
                 var = db.query(Variant).filter(Variant.id == item.variant_id).first()
@@ -2098,8 +2110,8 @@ def get_order_status(order_id: int, db: Session = Depends(get_db)):
 @app.put("/orders/{order_id}/approve")
 def approve_order(order_id: int, db: Session = Depends(get_db)):
     """
-    Staff accepts a PENDING order → moves to ACCEPTED for picker.
-    Stock and debt are NOT changed yet (picker confirm handles that).
+    Staff accepts a PENDING order → moves to APPROVED for picker.
+    Stock and debt are applied immediately when approving.
     """
     try:
         order = db.query(Order).filter(Order.id == order_id).first()
@@ -2109,6 +2121,26 @@ def approve_order(order_id: int, db: Session = Depends(get_db)):
         if order.status != 'pending':
             raise HTTPException(status_code=400, detail="Chỉ có thể tiếp nhận đơn đang chờ duyệt")
 
+        for item in order.items:
+            if not item.variant_id:
+                continue
+            var = db.query(Variant).filter(Variant.id == item.variant_id).first()
+            required = int(item.quantity or 0)
+            available = int(var.stock or 0) if var else 0
+            if not var or available < required:
+                raise HTTPException(status_code=400, detail=f"SP {item.product_name} thiếu hàng")
+
+        for item in order.items:
+            if not item.variant_id:
+                continue
+            var = db.query(Variant).filter(Variant.id == item.variant_id).first()
+            var.stock = int(var.stock or 0) - int(item.quantity or 0)
+
+        if order.customer_id and int(order.total_amount or 0) > 0:
+            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+            if customer:
+                customer.debt = int(customer.debt or 0) + int(order.total_amount or 0)
+
         order.status = 'approved'
         order.is_draft = 1  # keep is_draft consistent (still not finalized)
         db.commit()
@@ -2117,6 +2149,9 @@ def approve_order(order_id: int, db: Session = Depends(get_db)):
             "status": "success",
             "message": f"Đơn #{order_id} đã được duyệt, chờ picker nhận"
         }
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -2125,9 +2160,9 @@ def approve_order(order_id: int, db: Session = Depends(get_db)):
 @app.put("/orders/{order_id}/confirm")
 def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db: Session = Depends(get_db), picker_note: str = ""):
     """
-    Picker confirms delivery → applies to database:
-    - Deduct stock from variants (by picked quantities)
-    - Add debt to customer by delivered amount
+    Picker confirms delivery:
+    - Order stock/debt were already applied at approve/dispatch time
+    - If picker delivers less than requested, refund the difference back to stock/debt
     - Mark status='completed'
     - Save picker_note if there are shortages
     """
@@ -2166,26 +2201,23 @@ def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db
                 picked_by_item_id[item.id] = int(item.quantity or 0)
 
         delivered_total = 0
+        requested_total = int(order.total_amount or 0)
         shortage_parts = []
         stock_mismatch_parts = []
 
-        # Apply stock and update order items to delivered qty
+        # Refund shortages and update order items to delivered qty
         for item in list(order.items):
             requested_qty = int(item.quantity or 0)
             picked_qty = int(picked_by_item_id.get(item.id, 0))
 
-            if item.variant_id and picked_qty > 0:
-                var = db.query(Variant).filter(Variant.id == item.variant_id).first()
-                if var:
-                    available = int(var.stock or 0)
-                    if picked_qty > available:
-                        stock_mismatch_parts.append(f"{item.product_name} (kho thiếu {picked_qty - available})")
-                        var.stock = 0
-                    else:
-                        var.stock -= picked_qty
-
             if picked_qty < requested_qty:
                 shortage_parts.append(f"{item.product_name} ({picked_qty}/{requested_qty})")
+                if item.variant_id:
+                    var = db.query(Variant).filter(Variant.id == item.variant_id).first()
+                    if var:
+                        var.stock = int(var.stock or 0) + (requested_qty - picked_qty)
+                    else:
+                        stock_mismatch_parts.append(f"{item.product_name} (không tìm thấy biến thể để hoàn kho)")
 
             if picked_qty <= 0:
                 db.delete(item)
@@ -2193,11 +2225,12 @@ def confirm_order(order_id: int, data: Optional[PickerConfirmRequest] = None, db
                 item.quantity = picked_qty
                 delivered_total += int(item.price or 0) * picked_qty
 
-        # Add customer debt by delivered amount only
-        if order.customer_id and delivered_total > 0:
+        # Debt was already added when approve/dispatch; refund difference if delivered less
+        refund_amount = max(0, requested_total - delivered_total)
+        if order.customer_id and refund_amount > 0:
             customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
             if customer:
-                customer.debt += delivered_total
+                customer.debt = int(customer.debt or 0) - refund_amount
 
         order.total_amount = delivered_total
         order.picker_note = ""

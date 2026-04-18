@@ -58,3 +58,10 @@
   - `Popup lịch sử khách hàng`: thêm auto-refresh định kỳ và đồng bộ lại `Nợ hiện tại` mà không đóng popup.
   - `Lịch sử giao dịch cá nhân`: thêm auto-refresh định kỳ khi tab đang active.
   - `Nhận đơn`: thêm auto-refresh định kỳ cho danh sách đơn đã duyệt.
+
+# 2026-04-18 - Stock/debt timing fix for desktop dispatch flow
+- Chuyển thời điểm trừ kho/cộng công nợ từ lúc picker hoàn thành sang thời điểm tạo/duyệt đơn desktop:
+  - `POST /checkout/desktop-dispatch`: trừ kho và cộng công nợ ngay khi tạo đơn `approved`.
+  - `PUT /orders/{order_id}/approve`: trừ kho và cộng công nợ ngay khi duyệt đơn `pending`.
+- Cập nhật huỷ đơn `DELETE /orders/{order_id}/cancel`: dùng logic hoàn tác business để trả kho/trả công nợ cho các trạng thái đã áp dụng (`approved`, `assigned`, `completed`).
+- Cập nhật `PUT /orders/{order_id}/confirm`: không trừ kho/cộng nợ thêm lần nữa; chỉ hoàn trả phần chênh lệch khi giao thiếu (trả kho + giảm công nợ), đồng thời cập nhật `order.total_amount` theo số giao thực tế.
