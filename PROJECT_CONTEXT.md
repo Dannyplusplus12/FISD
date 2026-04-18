@@ -72,3 +72,8 @@
   - `approve` / `desktop-dispatch`: chỉ trừ (reserve) kho ngay để tránh oversell.
   - `confirm`: mới cộng công nợ theo số giao thực tế.
   - `cancel` / huỷ trước hoàn thành: hoàn lại kho; không hoàn nợ cho `approved/assigned` vì chưa cộng nợ.
+
+# 2026-04-18 - Desktop refresh button fix (Kho hàng / Xuất hàng)
+- Sửa 2 nút `Làm mới` trong `frontend/lib/screens/pos_screen.dart` (layout `Xuất hàng` và `Kho hàng`) để gọi `_loadProducts(_search)`.
+- Trước đó nút chỉ gọi `_applyProductFilter(_search)` nên chỉ lọc danh sách đang cache, không tải lại tồn kho mới từ API.
+- Kết quả mong đợi: bấm `Làm mới` sẽ lấy dữ liệu sản phẩm/tồn kho mới nhất từ server rồi mới áp filter hiện tại.

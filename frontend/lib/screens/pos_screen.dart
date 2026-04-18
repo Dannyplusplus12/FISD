@@ -345,7 +345,7 @@ class PosScreenState extends State<PosScreen> {
                               child: MouseRegion(
                                 cursor: SystemMouseCursors.click,
                                 child: OutlinedButton.icon(
-                                  onPressed: () => setState(() => _applyProductFilter(_search)),
+                                  onPressed: () => _loadProducts(_search),
                                   icon: const Icon(Icons.refresh, size: 16),
                                   label: const Text('Làm mới'),
                                 ),
@@ -444,7 +444,7 @@ class PosScreenState extends State<PosScreen> {
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
                           child: OutlinedButton.icon(
-                            onPressed: () => setState(() => _applyProductFilter(_search)),
+                            onPressed: () => _loadProducts(_search),
                             icon: const Icon(Icons.refresh, size: 16),
                             label: const Text('Làm mới'),
                           ),
