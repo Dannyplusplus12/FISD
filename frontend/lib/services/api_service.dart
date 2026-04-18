@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/product.dart';
@@ -352,30 +353,44 @@ class ApiService {
   static Future<Map<String, dynamic>> deliverOrder(
     int orderId, {
     required int pickerId,
-    required List<String> photoPaths,
+    required List<XFile> photos,
     List<Map<String, dynamic>>? items,
     String pickerNote = '',
   }) async {
-    final paths = photoPaths.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    if (paths.isEmpty) {
+    final validPhotos = photos.where((e) => e.path.trim().isNotEmpty).toList();
+    if (validPhotos.isEmpty) {
       throw Exception('Thiếu ảnh xác nhận giao hàng');
-    }
-    for (final path in paths) {
-      final f = File(path);
-      if (!await f.exists()) {
-        throw Exception('Không tìm thấy ảnh xác nhận trên thiết bị');
-      }
     }
 
     final req = http.MultipartRequest('PUT', Uri.parse('$_b/orders/$orderId/deliver-with-photo'));
     req.fields['picker_id'] = '$pickerId';
     req.fields['items_json'] = jsonEncode(items ?? const []);
     req.fields['picker_note'] = pickerNote.trim();
-    if (paths.isNotEmpty) {
-      req.files.add(await http.MultipartFile.fromPath('photo', paths.first));
+
+    final fileParts = <http.MultipartFile>[];
+    String? firstFileName;
+    List<int>? firstFileBytes;
+    for (final photo in validPhotos) {
+      final bytes = await photo.readAsBytes();
+      if (bytes.isEmpty) continue;
+      final name = photo.name.trim().isNotEmpty
+          ? photo.name.trim()
+          : photo.path.split('/').last.split('\\').last;
+      final finalName = name.isEmpty ? 'delivery.jpg' : name;
+      firstFileBytes ??= bytes;
+      firstFileName ??= finalName;
+      fileParts.add(http.MultipartFile.fromBytes('photos', bytes, filename: finalName));
     }
-    for (final path in paths) {
-      req.files.add(await http.MultipartFile.fromPath('photos', path));
+
+    if (fileParts.isEmpty) {
+      throw Exception('Không đọc được dữ liệu ảnh để gửi');
+    }
+
+    req.files.add(http.MultipartFile.fromBytes('photo', firstFileBytes!, filename: firstFileName!));
+    req.files.addAll(fileParts);
+
+    if (req.files.isEmpty) {
+      throw Exception('Thiếu ảnh xác nhận giao hàng');
     }
 
     final streamed = await req.send().timeout(const Duration(seconds: 120));

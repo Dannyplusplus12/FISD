@@ -1,6 +1,4 @@
 ﻿import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -2695,7 +2693,7 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
     return lines.take(2).join('\n');
   }
 
-  Future<List<String>> _pickDeliveryPhotoPaths() async {
+  Future<List<XFile>> _pickDeliveryPhotos() async {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -2721,15 +2719,15 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
     if (source == null) return [];
     if (source == ImageSource.gallery) {
       final xs = await picker.pickMultiImage(imageQuality: 75);
-      return xs.map((x) => x.path).where((p) => p.trim().isNotEmpty).toList();
+      return xs.where((x) => x.path.trim().isNotEmpty).toList();
     }
     final x = await picker.pickImage(source: source, imageQuality: 75);
-    return x?.path.trim().isNotEmpty == true ? [x!.path] : [];
+    return x?.path.trim().isNotEmpty == true ? [x!] : [];
   }
 
-  Future<List<String>?> _reviewDeliveryPhotos(List<String> initial) async {
+  Future<List<XFile>?> _reviewDeliveryPhotos(List<XFile> initial) async {
     final selected = [...initial];
-    return showModalBottomSheet<List<String>>(
+    return showModalBottomSheet<List<XFile>>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -2737,13 +2735,15 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             Future<void> addMore() async {
-              final more = await _pickDeliveryPhotoPaths();
+              final more = await _pickDeliveryPhotos();
               if (more.isEmpty) return;
               setDialogState(() {
-                for (final path in more) {
-                  final trimmed = path.trim();
-                  if (trimmed.isNotEmpty && !selected.contains(trimmed)) {
-                    selected.add(trimmed);
+                final existing = selected.map((x) => x.path).toSet();
+                for (final photo in more) {
+                  final trimmed = photo.path.trim();
+                  if (trimmed.isNotEmpty && !existing.contains(trimmed)) {
+                    selected.add(photo);
+                    existing.add(trimmed);
                   }
                 }
               });
@@ -2789,19 +2789,35 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
                               ),
                               itemCount: selected.length,
                               itemBuilder: (_, i) {
-                                final path = selected[i];
+                                final photo = selected[i];
                                 return Stack(
                                   children: [
                                     Positioned.fill(
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          File(path),
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const ColoredBox(
-                                            color: Color(0xFFE5E7EB),
-                                            child: Center(child: Icon(Icons.broken_image_outlined)),
-                                          ),
+                                        child: FutureBuilder<Uint8List>(
+                                          future: photo.readAsBytes(),
+                                          builder: (context, snap) {
+                                            if (snap.connectionState == ConnectionState.waiting) {
+                                              return const ColoredBox(
+                                                color: Color(0xFFE5E7EB),
+                                                child: Center(
+                                                  child: SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                            if (snap.hasError || snap.data == null || snap.data!.isEmpty) {
+                                              return const ColoredBox(
+                                                color: Color(0xFFE5E7EB),
+                                                child: Center(child: Icon(Icons.broken_image_outlined)),
+                                              );
+                                            }
+                                            return Image.memory(snap.data!, fit: BoxFit.cover);
+                                          },
                                         ),
                                       ),
                                     ),
@@ -2841,7 +2857,7 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
                             child: ElevatedButton.icon(
                               onPressed: selected.isEmpty
                                   ? null
-                                  : () => Navigator.pop(dialogContext, List<String>.from(selected)),
+                                  : () => Navigator.pop(dialogContext, List<XFile>.from(selected)),
                               icon: const Icon(Icons.check_circle_outline),
                               label: const Text('Gửi xác nhận'),
                             ),
@@ -2875,24 +2891,24 @@ class _AcceptedOrdersScreenState extends State<_AcceptedOrdersScreen> {
         });
       }
 
-      final initialPhotos = await _pickDeliveryPhotoPaths();
+      final initialPhotos = await _pickDeliveryPhotos();
       if (initialPhotos.isEmpty) {
         throw Exception('Bắt buộc có ảnh xác nhận giao hàng');
       }
 
-      final photoPaths = await _reviewDeliveryPhotos(initialPhotos);
-      if (photoPaths == null) {
+      final photos = await _reviewDeliveryPhotos(initialPhotos);
+      if (photos == null) {
         if (mounted) setState(() => _confirming.remove(order.id));
         return;
       }
-      if (photoPaths.isEmpty) {
+      if (photos.isEmpty) {
         throw Exception('Bắt buộc có ảnh xác nhận giao hàng');
       }
 
       final res = await ApiService.deliverOrder(
         order.id,
         pickerId: pickerId,
-        photoPaths: photoPaths,
+        photos: photos,
         items: payload,
         pickerNote: pickerNote,
       );

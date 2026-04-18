@@ -29,3 +29,8 @@
 - Cập nhật `frontend/lib/main.dart`: chọn màn hình bằng `Builder` bên trong `MaterialApp` để đảm bảo có `MediaQuery` hợp lệ khi quyết định mobile/desktop UI.
 - Cập nhật `frontend/lib/utils/device_detector.dart`: trên web ưu tiên nhận diện `defaultTargetPlatform` (iOS/Android => mobile), sau đó fallback theo chiều rộng logical viewport.
 - Cập nhật `frontend/web/index.html`: thêm meta `viewport` và `apple-mobile-web-app-capable` để Safari iPhone dùng đúng viewport mobile và cải thiện hành vi Add to Home Screen.
+
+# 2026-04-18 - Safari delivery photo upload fix
+- Sửa luồng ảnh giao hàng ở `frontend/lib/screens/mobile_home_screen.dart` để dùng `XFile` + `readAsBytes()` cho preview/thao tác chọn ảnh, tránh dùng `dart:io File` trong web Safari.
+- Sửa API upload ở `frontend/lib/services/api_service.dart`: đổi `deliverOrder` sang nhận `List<XFile>` và gửi multipart bằng `MultipartFile.fromBytes` để tương thích web/iOS Safari.
+- Kết quả mong đợi: không còn lỗi `Unsupported operation: _Namespace` khi chụp/chọn ảnh và gửi xác nhận giao đơn trên Safari.
