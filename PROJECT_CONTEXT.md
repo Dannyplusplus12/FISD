@@ -48,3 +48,13 @@
   - `frontend/web/icons/Icon-maskable-192.png`
   - `frontend/web/icons/Icon-maskable-512.png`
   - `frontend/web/favicon.png`
+
+# 2026-04-18 - Auto-refresh UX tuning (mobile)
+- Gỡ popup/banner hướng dẫn thêm màn hình chính khỏi `frontend/lib/main.dart` theo yêu cầu.
+- Tăng tự động làm mới dữ liệu trên mobile để giảm trường hợp người dùng quên bấm refresh:
+  - `Picker`: polling luôn refresh cả danh sách `Nhận đơn` và `Giao đơn` (không phụ thuộc tab đang mở).
+  - `Manager duyệt đơn`: thêm auto-refresh định kỳ cho tab duyệt.
+  - `Công nợ`: thêm auto-refresh định kỳ cho danh sách khách hàng.
+  - `Popup lịch sử khách hàng`: thêm auto-refresh định kỳ và đồng bộ lại `Nợ hiện tại` mà không đóng popup.
+  - `Lịch sử giao dịch cá nhân`: thêm auto-refresh định kỳ khi tab đang active.
+  - `Nhận đơn`: thêm auto-refresh định kỳ cho danh sách đơn đã duyệt.

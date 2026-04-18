@@ -379,12 +379,29 @@ class _OrdererScreenState extends State<_OrdererScreen> with _NotificationMixin 
   bool _managerPendingBootstrapped = false;
   int _tabIndex = 0;
 
+  void _refreshCurrentTab({bool silent = true}) {
+    if (_tabIndex == 0) {
+      _createOrderKey.currentState?.reloadProducts(silent: silent);
+      return;
+    }
+    if (_tabIndex == 1) {
+      _debtKey.currentState?.reload(silent: silent);
+      return;
+    }
+    if (_tabIndex == 2) {
+      _activityKey.currentState?.reload(silent: silent);
+      return;
+    }
+    _managerApproveKey.currentState?.reloadOrders(silent: silent);
+  }
+
   void _setTabIndexSafe(int index, int maxIndex) {
     if (!mounted) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final next = index.clamp(0, maxIndex);
     if (next == _tabIndex) return;
     setState(() => _tabIndex = next);
+    _refreshCurrentTab(silent: true);
   }
 
   @override
@@ -395,6 +412,7 @@ class _OrdererScreenState extends State<_OrdererScreen> with _NotificationMixin 
       if (AppModeManager.isManager) {
         unawaited(_pollManagerPendingOrders());
       }
+      _refreshCurrentTab(silent: true);
     });
     if (AppModeManager.isManager) {
       unawaited(_pollManagerPendingOrders());
@@ -428,9 +446,7 @@ class _OrdererScreenState extends State<_OrdererScreen> with _NotificationMixin 
           ..addAll(currentIds);
       }
 
-      if (_tabIndex == 3) {
-        _managerApproveKey.currentState?.reloadOrders(silent: true);
-      }
+      _managerApproveKey.currentState?.reloadOrders(silent: true);
     } catch (_) {}
   }
 
@@ -585,11 +601,19 @@ class _ManagerApproveScreen extends StatefulWidget {
 class _ManagerApproveScreenState extends State<_ManagerApproveScreen> {
   bool _loading = true;
   List<Order> _orders = [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     reloadOrders();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => reloadOrders(silent: true));
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> reloadOrders({bool silent = false}) async {
@@ -818,21 +842,24 @@ class _OrdererDebtScreenState extends State<_OrdererDebtScreen> {
   String _search = '';
   List<Customer> _customers = [];
   final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     reload();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => reload(silent: true));
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> reload() async {
-    setState(() => _loading = true);
+  Future<void> reload({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     try {
       final data = await ApiService.getCustomers();
       if (mounted) {
@@ -841,13 +868,13 @@ class _OrdererDebtScreenState extends State<_OrdererDebtScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tải công nợ: $e'), backgroundColor: Colors.red),
         );
       }
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted && !silent) setState(() => _loading = false);
   }
 
   List<Customer> get _filtered {
@@ -863,7 +890,7 @@ class _OrdererDebtScreenState extends State<_OrdererDebtScreen> {
       showDragHandle: true,
       builder: (_) => _OrdererCustomerHistorySheet(
         customer: c,
-        onChanged: reload,
+        onChanged: () => reload(silent: true),
       ),
     );
   }
@@ -944,26 +971,55 @@ class _OrdererCustomerHistorySheet extends StatefulWidget {
 class _OrdererCustomerHistorySheetState extends State<_OrdererCustomerHistorySheet> {
   bool _loading = true;
   List<HistoryItem> _items = [];
+  int _currentDebt = 0;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    _currentDebt = widget.customer.debt;
     _load();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     try {
-      final data = await ApiService.getCustomerHistory(widget.customer.id);
-      if (mounted) setState(() => _items = data);
-    } catch (e) {
+      final results = await Future.wait([
+        ApiService.getCustomerHistory(widget.customer.id),
+        ApiService.getCustomers(),
+      ]);
+      final data = results[0] as List<HistoryItem>;
+      final customers = results[1] as List<Customer>;
+      Customer? current;
+      for (final c in customers) {
+        if (c.id == widget.customer.id) {
+          current = c;
+          break;
+        }
+      }
       if (mounted) {
+        setState(() {
+          _items = data;
+          if (current != null) {
+            _currentDebt = current.debt;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tải lịch sử: $e'), backgroundColor: Colors.red),
         );
       }
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted && !silent) setState(() => _loading = false);
   }
 
   Future<void> _collectMoney() async {
@@ -1009,8 +1065,9 @@ class _OrdererCustomerHistorySheetState extends State<_OrdererCustomerHistoryShe
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã thu tiền thành công'), backgroundColor: Colors.green),
         );
+        setState(() => _currentDebt = _currentDebt - amount);
       }
-      await _load();
+      await _load(silent: true);
       await widget.onChanged();
     } catch (e) {
       if (mounted) {
@@ -1074,7 +1131,7 @@ class _OrdererCustomerHistorySheetState extends State<_OrdererCustomerHistoryShe
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(widget.customer.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('Nợ hiện tại: ${formatCurrency(widget.customer.debt)} k', style: const TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
+                        Text('Nợ hiện tại: ${formatCurrency(_currentDebt)} k', style: const TextStyle(color: kDanger, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -1116,6 +1173,7 @@ class _MyActivityHistoryScreen extends StatefulWidget {
 class _MyActivityHistoryScreenState extends State<_MyActivityHistoryScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   Timer? _searchDebounce;
+  Timer? _refreshTimer;
   bool _loading = true;
   bool _requesting = false;
   String _search = '';
@@ -1133,6 +1191,11 @@ class _MyActivityHistoryScreenState extends State<_MyActivityHistoryScreen> {
   void initState() {
     super.initState();
     _load();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (widget.isActive) {
+        unawaited(_load(silent: true));
+      }
+    });
   }
 
   @override
@@ -1145,12 +1208,13 @@ class _MyActivityHistoryScreenState extends State<_MyActivityHistoryScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> reload() => _load();
+  Future<void> reload({bool silent = false}) => _load(silent: silent);
 
   Future<void> _load({bool silent = false}) async {
     if (_requesting) return;
@@ -1705,7 +1769,7 @@ class _CreateOrderScreenState extends State<_CreateOrderScreen> {
     }
   }
 
-  Future<void> reloadProducts() => _load();
+  Future<void> reloadProducts({bool silent = false}) => _load(silent: silent);
 
   Future<void> _load({bool silent = false}) async {
     if (!silent) {
@@ -2531,11 +2595,19 @@ class _ApprovedOrdersScreen extends StatefulWidget {
 class _ApprovedOrdersScreenState extends State<_ApprovedOrdersScreen> {
   bool _loading = true;
   List<Order> _orders = [];
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) => _load(silent: true));
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> reloadOrders({bool silent = false}) => _load(silent: silent);
