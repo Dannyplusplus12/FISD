@@ -1,0 +1,103 @@
+*
+/*/
+
+# Root level whitelists
+!.gitignore
+!README.md
+!PROJECT_CONTEXT.md
+!.github/
+!.github/**
+
+# Backend folder and files
+!backend/
+!backend/**
+
+# Cronjob folder and files
+!cronjob/
+!cronjob/*.py
+!cronjob/*.txt
+!cronjob/*.toml
+!cronjob/Procfile
+
+# Frontend (Flutter app source)
+!frontend/
+!frontend/**
+
+# Keep frontend build artifacts ignored
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/pubspec.lock
+frontend/**/.g.dart
+frontend/**/*.g.dart
+frontend/**/doc/api/
+frontend/**/.dart_tool/
+frontend/**/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/ios/Pods/
+frontend/macos/Pods/
+frontend/windows/flutter/ephemeral/
+frontend/linux/flutter/ephemeral/
+
+# Python cache & venv
+**/__pycache__/
+**/*.pyc
+*.egg-info/
+.Python
+build/
+dist/
+*.egg
+venv/
+env/
+ENV/
+.venv
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+logs/
+npm-debug.log
+yarn-debug.log
+
+yarn-error.log
+crash_log.txt
+crash-*.txt
+
+# Misc
+temp/
+tmp/
+.tmp/
+dist/
+output/
+
+# Local data / backups (do not push)
+*.db
+*.db-shm
+*.db-wal
+*backup*.db
+shop_backup.db
+

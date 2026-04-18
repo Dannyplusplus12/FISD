@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+
+[build.nixpacks]
+installCmd = "pip install -r requirements.txt"
+
+[deploy]
+startCommand = "python backup_postgres_to_telegram.py --label railway"
+restartPolicyType = "never"

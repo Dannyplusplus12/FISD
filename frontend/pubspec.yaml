@@ -1,0 +1,39 @@
+name: flutter_frontend
+description: "Stuff Storage Manager - Flutter Frontend"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.1.0
+  intl: ^0.20.2
+  shared_preferences: ^2.2.0
+  file_selector: ^1.0.3
+  flutter_local_notifications: ^18.0.1
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  windows:
+    generate: true
+    image_path: "logo.png"
+    icon_size: 256
+  image_path: "logo.png"
+  remove_alpha_ios: true
