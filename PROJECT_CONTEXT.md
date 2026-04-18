@@ -20,3 +20,7 @@
   - `backend/` cho API
   - `cronjob/` cho backup job
   - `frontend/` cho PWA
+
+# 2026-04-18 - PWA device layout detection fix
+- Sửa logic chọn UI ở `frontend/lib/main.dart` để dùng `DeviceDetector.isMobileLayout(context)`.
+- Bổ sung fallback nhận diện cho web trong `frontend/lib/utils/device_detector.dart`: nếu chạy PWA thì phân loại mobile/desktop theo độ rộng màn hình (`MediaQuery`), giúp hiển thị đúng UI trên điện thoại và desktop browser.

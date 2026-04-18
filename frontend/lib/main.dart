@@ -57,6 +57,8 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final useMobileLayout = DeviceDetector.isMobileLayout(context);
+
     return MaterialApp(
       title: 'Fisd',
       debugShowCheckedModeBanner: false,
@@ -73,7 +75,7 @@ class _MyAppState extends State<MyApp> {
         Locale('en', 'US'),
       ],
       locale: const Locale('vi', 'VN'),
-      home: DeviceDetector.isMobile
+      home: useMobileLayout
           ? const MobileHomeScreen()
           : HomeScreen(
               isDarkMode: _themeMode == ThemeMode.dark,
