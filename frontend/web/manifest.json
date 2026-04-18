@@ -1,11 +1,11 @@
 {
-    "name": "fisd",
-    "short_name": "fisd",
+    "name": "Fisd",
+    "short_name": "Fisd",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "fisd - quản lý đơn hàng và tồn kho",
+    "description": "Fisd - quản lý đơn hàng và tồn kho",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

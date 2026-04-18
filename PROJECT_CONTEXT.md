@@ -34,3 +34,17 @@
 - Sửa luồng ảnh giao hàng ở `frontend/lib/screens/mobile_home_screen.dart` để dùng `XFile` + `readAsBytes()` cho preview/thao tác chọn ảnh, tránh dùng `dart:io File` trong web Safari.
 - Sửa API upload ở `frontend/lib/services/api_service.dart`: đổi `deliverOrder` sang nhận `List<XFile>` và gửi multipart bằng `MultipartFile.fromBytes` để tương thích web/iOS Safari.
 - Kết quả mong đợi: không còn lỗi `Unsupported operation: _Namespace` khi chụp/chọn ảnh và gửi xác nhận giao đơn trên Safari.
+
+# 2026-04-18 - iPhone install banner + branding
+- Thêm banner hướng dẫn cài PWA trên mobile web trong `frontend/lib/main.dart`:
+  - Nội dung: hướng dẫn Safari `Chia sẻ (□↑) -> Thêm vào Màn hình chính`.
+  - Có 2 nút: `Đã hiểu` (ẩn tạm) và `Không nhắc lại` (lưu bằng `SharedPreferences`).
+- Đồng bộ tên hiển thị web/PWA từ `fisd` thành `Fisd`:
+  - `frontend/web/index.html` (`title`, `apple-mobile-web-app-title`, `description`)
+  - `frontend/web/manifest.json` (`name`, `short_name`, `description`)
+- Thay icon web/PWA từ `frontend/logo.png` cho các file:
+  - `frontend/web/icons/Icon-192.png`
+  - `frontend/web/icons/Icon-512.png`
+  - `frontend/web/icons/Icon-maskable-192.png`
+  - `frontend/web/icons/Icon-maskable-512.png`
+  - `frontend/web/favicon.png`

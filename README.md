@@ -49,3 +49,7 @@ cd cronjob
 pip install -r requirements.txt
 python backup_postgres_to_telegram.py --label railway
 ```
+
+
+
+
