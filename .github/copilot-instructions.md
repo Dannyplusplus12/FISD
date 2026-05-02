@@ -15,11 +15,12 @@
 - Implement a role/PIN-based employee management system: desktop adds staff-management CRUD (name, phone, role, random PIN), login by PIN loads role-specific UI, and order flow expands to pending->approved->assigned (received by picker)->delivered (with mandatory photo proof), with full desktop tracking/history including who/when/proof image.
 - Mobile app entry must skip role selection and use PIN-only login that auto-detects and shows role UI. The picker must keep the inventory (`Kho hàng`) tab for lookup while processing orders.
 - Mobile app login must be inline on the entry screen (PIN input + direct 'Vào app' button) instead of using a popup dialog.
-- Set app name to 'fisd' across platforms, and use the provided logo as the launcher/external icon instead of the default Flutter icon.
+- Set app name to 'Fisd' across platforms, including iPhone/PWA display metadata and icons, and use the provided logo as the launcher/external icon instead of the default Flutter icon.
 - Manager role behavior should follow the picker flow, and order dispatch should skip staff approval and go directly to the picker queue.
 - **Consider practical low-cost backup strategies**: store database and delivery images on Google Drive or Telegram in addition to local staff machine storage.
 - **Deployment process**: Code changes should be made in the `backend/` directory of the main repository, then copied to the separate server directory/repo for pushing to Railway.
 - **Consolidate deployment into a single monorepo (StuffStorageManager)** with separate Railway services for backend, Telegram backup cronjob, and frontend PWA, each using its own Dockerfile/root directory, plus one PostgreSQL database. **User prefers a single GitHub monorepo for FISD and wants Railway to deploy multiple services by setting different root directories (backend, cronjob, frontend) from the same repo.**
+- After each feature update, automatically commit and push changes to the repository without needing a separate reminder.
 
 ## UI/Feature Preferences
 - UI/feature preference for current update: add dedicated `Khu vực` menu/page; debt screen layout should keep new-customer form on the left and customer list in the center; customer name input should open full dropdown on focus and filter while typing; area selection is required when creating/updating customers.
