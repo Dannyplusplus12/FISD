@@ -7,6 +7,8 @@
 !PROJECT_CONTEXT.md
 !.github/
 !.github/**
+!release_artifacts/
+!release_artifacts/**
 
 # Backend folder and files
 !backend/
