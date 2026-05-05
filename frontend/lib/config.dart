@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 
 class AppConfig {
-  static String apiUrl = 'https://web-production-e5558.up.railway.app';
+  static String apiUrl = 'https://backend-production-5efd.up.railway.app';
 
   static Future<void> _tryLoadFromFile(File file) async {
     if (!await file.exists()) return;
