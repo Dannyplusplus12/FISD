@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - 'frontend/**'
       - '.github/workflows/build-ios-unsigned-ipa.yml'
 
 jobs:

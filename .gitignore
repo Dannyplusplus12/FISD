@@ -5,6 +5,8 @@
 !.gitignore
 !README.md
 !PROJECT_CONTEXT.md
+!CLAUDE.md
+!API_GUIDE.md
 !.github/
 !.github/**
 !release_artifacts/
